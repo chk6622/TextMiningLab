@@ -112,6 +112,13 @@ class TextParser(object):
         aReturn.sort(key=(lambda x:x[1]), reverse=False)  #sort the list
         return aReturn
     
+    def execute(self,grammar):
+        '''
+        execute
+        '''
+        for line in self.parseFile(grammar):  #parse each line
+            self.processTree2(line)  #process the line (tree structure)
+    
 
 if __name__ == '__main__':
     
@@ -119,8 +126,7 @@ if __name__ == '__main__':
     filePath='test.txt'  # the text file path
     grammar = "DNP: {<DT>?(<RB>|<RBR>|<RBS>)*(<JJ>|<JJR>|<JJS>)*<IN>*(<NN>|<NNS>|<NNP>|<NNPS>)+}"
     parser=TextParser(text=sent,filePath=filePath)  #generate a object of TextParser
-    for line in parser.parseFile(grammar):  #parse each line
-        parser.processTree2(line)  #process the line (tree structure)
+    parser.execute(grammar)
     for ind,item in enumerate(parser.getCountResult()): #output the result
         print('%d . %s : %s' % (ind+1,item[0],item[1]))
 
