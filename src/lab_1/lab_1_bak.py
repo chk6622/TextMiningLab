@@ -20,7 +20,9 @@ class TextParser(object):
         
     def parseText(self,grammar):
         '''
-        
+        parse all text
+        @param grammar:
+        @return the result is parsed by nltk
         '''
         result=None
         if self.text and grammar:
@@ -28,10 +30,15 @@ class TextParser(object):
             cp = nltk.RegexpParser(grammar)
             result = cp.parse(taggedS)
 #             print(result)
-#             result.draw()
+            result.draw()
         return result
     
-    def parseFile(self,grammar):      
+    def parseFile(self,grammar):
+        '''
+        pares file
+        @param grammar:
+        @return a iterator and the iterator can return each line parsed by nltk 
+        '''
         result=None
         if self.filePath:
             f = open(self.filePath, "r")
@@ -40,11 +47,14 @@ class TextParser(object):
                     taggedS = nltk.pos_tag(nltk.word_tokenize(line))
                     cp = nltk.RegexpParser(grammar)
                     result = cp.parse(taggedS)
-                    yield result
-        f.close()
+#                     result.draw()
+                    yield result #yield each line
+            f.close()
    
     def processTree(self,tree):
-        
+        '''
+        The first method to process the tree structure
+        '''
         if tree and isinstance(tree, nltk.tree.Tree):
 #             print(tree.leaves())
             for node in tree.leaves():
@@ -73,36 +83,47 @@ class TextParser(object):
                     if len(self.buffer)>0:
                         self.buffer.append(node)
 #             print(self.buffer)
+
+
+    def processTree2(self,tree):
+        '''
+        The second method to process the tree structure (I prefer this method:)
+        '''
+        if tree and isinstance(tree,nltk.tree.Tree):
+            for subTree in tree.subtrees():
+                if subTree and 'DNP'==subTree.label():
+                    leaves=subTree.leaves()
+                    if leaves[0][0] and leaves[0][0].upper()=='THE':
+                        str=(' '.join([leaf[0] for leaf in leaves])).lower()
+                        val=self.countMap.get(str)
+                        if not val:
+                            val=1
+                        else:
+                            val=val+1
+                        self.countMap[str]=val
+                        
         
     def getCountResult(self):
-        aReturn=[item for item in self.countMap.items()]
-        aReturn.sort(key=(lambda x:x[1]), reverse=False)
+        '''
+        get the result processed
+        @return: a list containing the results
+        '''
+        aReturn=[item for item in self.countMap.items()]  #get the list containing all definite nouns
+        aReturn.sort(key=(lambda x:x[1]), reverse=False)  #sort the list
         return aReturn
     
 
-if __name__ == '__main__':   
-    sent = '''Vegetarianism is on the rise, as many vegetarians will gladly tell you.
-
-While many people who eschew meat products do so for the sake of animals and the environment, we're starting to learn more about the negative health effects of meat and the benefits from eating a plant-based diet.
-
-We asked five experts if a vegetarian diet is healthier.'''
-#     taggedS = nltk.pos_tag(nltk.word_tokenize(sent))
-    filePath='test.txt'
-    grammar = "NP: {<DT>?<JJ>*<NN>}"
-#     cp = nltk.RegexpParser(grammar)
-#     result = cp.parse(taggedS)
-#     print(result)
-#     result.draw()
-    parser=TextParser(text=sent,filePath=filePath)
-#     result=parser.parseText(grammar)
-#     print(result.leaves())
-    for line in parser.parseFile(grammar):
-        parser.processTree(line)
-    for ind,item in enumerate(parser.getCountResult()):
+if __name__ == '__main__':
+    
+    sent=None
+    filePath='test.txt'  # the text file path
+    grammar = "DNP: {<DT>?(<RB>|<RBR>|<RBS>)*(<JJ>|<JJR>|<JJS>)*<IN>*(<NN>|<NNS>|<NNP>|<NNPS>)+}"
+    parser=TextParser(text=sent,filePath=filePath)  #generate a object of TextParser
+    for line in parser.parseFile(grammar):  #parse each line
+        parser.processTree2(line)  #process the line (tree structure)
+    for ind,item in enumerate(parser.getCountResult()): #output the result
         print('%d . %s : %s' % (ind+1,item[0],item[1]))
-#     str='a'
-#     print('d' in str)
-#     print(str[-1:])
+
 
 
 
