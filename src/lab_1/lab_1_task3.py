@@ -9,7 +9,7 @@ result.draw()
 
 # I changed the sentence to 
 # ‘I in the park saw a boy with a telescope.’, 
-# and use the same grammar to parse the sentence. :
+# and use the same grammar to parse the sentence. the result is:
 # (S
 #   I/PRP
 #   in/IN
@@ -19,7 +19,7 @@ result.draw()
 #   with/IN
 #   (NP a/DT telescope/NN)
 #   ./.)
-# I find out that if we have the same grammar 
+# I find that if we have the same grammar 
 # we can get the different tree with the same 
 # meaning no matter how to rewrite the 
 # sentence in a different way. 
