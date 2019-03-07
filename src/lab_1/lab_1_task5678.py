@@ -6,7 +6,6 @@ Created on Mar 5, 2019
 @author: xingtong
 '''
 import nltk
-import string
 
 class TextParser(object):
     '''
@@ -121,13 +120,14 @@ class TextParser(object):
     
 
 if __name__ == '__main__':
-    
     sent=None
     filePath='test.txt'  # the text file path
     grammar = "DNP: {<DT>?(<RB>|<RBR>|<RBS>)*(<JJ>|<JJR>|<JJS>)*<IN>*(<NN>|<NNS>|<NNP>|<NNPS>)+}"
     parser=TextParser(text=sent,filePath=filePath)  #generate a object of TextParser
     parser.execute(grammar)
-    for ind,item in enumerate(parser.getCountResult()): #output the result
+    results=parser.getCountResult()
+    print('There are %d definite nouns:' % len(results))   #output the result
+    for ind,item in enumerate(parser.getCountResult()):
         print('%d . %s : %s' % (ind+1,item[0],item[1]))
 
 
