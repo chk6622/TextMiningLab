@@ -49,14 +49,15 @@ def get_dataset(training_percentage=0.8):
     '''
     get data set
     @param training_percentage: the percentage of training set account for total data
-    @return: train_tagged_sents,test_tagged_sents
+    @return: train_tagged_sents,test_tagged_sents, test_brown_sents
     '''
-    brown_tagged_sents = brown.tagged_sents(categories='news')
-    brown_sents = brown.sents(categories='news')
+    brown_tagged_sents = brown.tagged_sents(categories='learned')
+    brown_sents = brown.sents(categories='learned')
     size = int(len(brown_tagged_sents) * training_percentage)
     train_tagged_sents = brown_tagged_sents[:size]
     test_tagged_sents = brown_tagged_sents[size:]
-    return train_tagged_sents,test_tagged_sents,brown_sents[size:]
+    test_brown_sents = brown_sents[size:]
+    return train_tagged_sents,test_tagged_sents,test_brown_sents
 
 #get all tagger
 unigram_tagger=get_tagger(filename.get('unigram'))
@@ -72,76 +73,80 @@ train_tagged_sents=None
 test_tagged_sents=None
 
 #get the training and the test data
-train_tagged_sents,test_tagged_sents,brown_sents=get_dataset()
+train_tagged_sents,test_tagged_sents,test_brown_sents=get_dataset()
 
-#init all tagger
+#to train all tagger
 if not unigram_tagger:
-    print('Begin init unigram tagger')
+    print('Begin to train unigram tagger')
     #Instantiate,training Unigram tagger
     unigram_tagger = nltk.UnigramTagger(train_tagged_sents)
     #store unigram_tagger
     store_tagger(unigram_tagger,filename.get('unigram'))
-    print('Init unigram tagger finish')
+    print('training unigram tagger finished')
 
 
 if not tnt_tagger:
-    print('Begin init Tnt tagger')
+    print('Begin to train Tnt tagger')
     #Instantiate,training TnT tagger
     tnt_tagger = nltk.tag.tnt.TnT()
     tnt_tagger.train(train_tagged_sents)
     #store tnt_tagger
     store_tagger(tnt_tagger,filename.get('tnt'))
-    print('Init Tnt tagger finish')
+    print('Training Tnt tagger finished')
     
 if not perceptron_tagger:
-    print('Begin init perceptron tagger')
+    print('Begin to train perceptron tagger')
     #Instantiate,training Perceptron tagger
     perceptron_tagger=nltk.tag.perceptron.PerceptronTagger()
     perceptron_tagger.train(train_tagged_sents)
     #store perceptron_tagger
     store_tagger(perceptron_tagger, filename.get('perceptron'))
-    print('Init perceptron tagger finish')
+    print('Training perceptron tagger finished')
 
 if not crf_tagger:
-    print('Begin init crf tagger')
+    print('Begin to train crf tagger')
     #Instantiate,training,store CRF tagger
     crf_tagger=nltk.tag.CRFTagger()
     crf_tagger.train(train_tagged_sents,filename.get('crf'))
-    print('Init crf tagger finish')
+    print('Training crf tagger finished')
 
 
 f1_list=[]
-unigram_tagger_sents=unigram_tagger.tag_sents(brown_sents)
+unigram_tagger_sents=unigram_tagger.tag_sents(test_brown_sents)
 tag_set_1_d=[x[1] for item in unigram_tagger_sents for x in item]
 fd = nltk.FreqDist(tag_set_1_d)
 print('----------------unigram_tagger------------------')
 fd.tabulate(10)
 f1_unigram=unigram_tagger.evaluate(test_tagged_sents)
 f1_list.append(('unigram_tagger',f1_unigram))
+print()
 
-tnt_tagger_sents=tnt_tagger.tag_sents(brown_sents)
+tnt_tagger_sents=tnt_tagger.tag_sents(test_brown_sents)
 tag_set_1_d=[x[1] for item in tnt_tagger_sents for x in item]
 fd = nltk.FreqDist(tag_set_1_d)
 print('----------------tnt_tagger------------------')
 fd.tabulate(10)
 f1_tnt=tnt_tagger.evaluate(test_tagged_sents)
 f1_list.append(('tnt_tagger',f1_tnt))
+print()
 
-perceptron_tagger_sents=perceptron_tagger.tag_sents(brown_sents)
+perceptron_tagger_sents=perceptron_tagger.tag_sents(test_brown_sents)
 tag_set_1_d=[x[1] for item in perceptron_tagger_sents for x in item]
 fd = nltk.FreqDist(tag_set_1_d)
 print('----------------perceptron_tagger------------------')
 fd.tabulate(10)
 f1_perceptron=perceptron_tagger.evaluate(test_tagged_sents)
 f1_list.append(('perceptron_tagger',f1_perceptron))
+print()
  
-crf_tagger_sents=crf_tagger.tag_sents(brown_sents)
+crf_tagger_sents=crf_tagger.tag_sents(test_brown_sents)
 tag_set_1_d=[x[1] for item in crf_tagger_sents for x in item]
 fd = nltk.FreqDist(tag_set_1_d)
 print('----------------crf_tagger------------------')
 fd.tabulate(10)
 f1_crf=crf_tagger.evaluate(test_tagged_sents)
 f1_list.append(('crf_tagger',f1_crf))
+print()
 
 f1_list.sort(key=(lambda x:x[1]), reverse=True)
 for item in f1_list:
