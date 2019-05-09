@@ -13,43 +13,13 @@ import spacy
 import neuralcoref
 import subject_object_extraction
 from textacy.extract import subject_verb_object_triples
+from gensim.summarization import summarize
 # import textacy.extract
 # from collections import Counter
 
 nlp_1 = spacy.load('en_core_web_sm')           # load model package "en_core_web_sm/md"
 neuralcoref.add_to_pipe(nlp_1)  #add NeuralCoref to the pipline of spacy to solve coreference resolution
 nlp_2 = spacy.load('en_core_web_sm')
-
-# class root_dep_static_tool(object):
-#     def __init__(self,entity_name):
-#         self.entity_name=entity_name
-#         self.root_dep_count=[]  #(root_dep,count,(actions)) item1 (action,count,(sentence)) item2
-# #         self.actions=[]  #(action,count,(sentence)) item2
-#     
-#     def static(self,entity):
-#         if self.entity_name!=entity.get_ent():
-#             return
-#         flag=False
-#         for item1 in self.root_dep_count:  
-#             if entity.root_dep==item1[0]:
-#                 flag=True
-#                 item1[1]+=1
-#                 action=entity.verb
-#                 isExist=False
-#                 #['compound', 2, [None, 1, [Ethiopian Airlines Boeing 737 flight in fatal crash]]]
-#                 for item2 in item1[2]:
-# #                     print(item2)
-#                     if item2 is not None and action==item2[0]:
-#                         isExist=True
-#                         item2[1]+=1
-#                         item2[2].append(entity.sent)
-# #                         item2[2]+=entity.children
-#                 if not isExist:
-#                     item1[2].append([action,1,[entity.sent]])
-# #                     item1[2].append([action,1,entity.children])
-#         if not flag:
-#             self.root_dep_count.append([entity.root_dep,1,[[entity.verb,1,[entity.sent]]]])
-# #             self.root_dep_count.append([entity.root_dep,1,[[entity.verb,1,entity.children]]])
             
         
 
@@ -71,41 +41,58 @@ class static_tool(object):
     def output_static_results(self):
         items=list(self.entities_count.items())
         items.sort(key=lambda x:len(x[1]), reverse=True)
+        file_summary_dic={}
         for (ind,item) in enumerate(items):
             if ind==5:
                 break
             ent_name=item[0]
             ent_list=item[1]
             
-#             ents=item[1]
-            distinct_ents=list(set([(ent.sent,ent.file_name) for ent in ent_list]))
-            file_list=[(trunk,file_name) for (sent,file_name) in distinct_ents for trunk in self.get_sentence_trunk(sent)]
+            distinct_ents=list(set([(ent.sent,ent.file_name,ent.sent_index,ent.file_path) for ent in ent_list]))
+#             trunk_list=[(trunk,file_name,sent_index,file_path) for (sent,file_name,sent_index,file_path) in distinct_ents for trunk in self.get_sentence_trunk(sent)]
+            trunk_list=[('',file_name,sent_index,file_path) for (sent,file_name,sent_index,file_path) in distinct_ents]
             
             file_dic={}
-            for file in file_list:
-                if file_dic.get(file[1]) is None:
-                    file_dic[file[1]]=[file[0]]
+            for trunk in trunk_list:
+                if file_dic.get(trunk[1]) is None:
+                    file_dic[trunk[1]]=[trunk]
                 else:
-                    file_dic[file[1]].append(file[0])
+                    file_dic[trunk[1]].append(trunk)
                     
-            file_name_list=list(file_dic.keys())      
+            
+            for (sent,file_name,sent_index,file_path) in distinct_ents:
+                if file_name not in file_summary_dic:
+                    txt=''
+                    with open(file_path, 'rb') as f:
+                        txt=f.read()
+                    summary=summarize(str(txt,encoding = "utf-8"),word_count=50)
+                    file_summary_dic[file_name]=summary
+                    
+            file_name_list=list(file_dic.keys())  
+            file_name_list.sort(reverse=False)
+                       
             print('\n%d.  %s is found %d times in %d files.' % (ind+1,ent_name,len(ent_list),len(file_name_list)))
 #             print('%s is found in %d files' % (ent_name,len(file_name_list)))
-            file_name_list.sort(reverse=False)
+            
             for file_name in file_name_list:
                 trunk_list=file_dic.get(file_name)
+                trunk_list.sort(key=lambda x:x[2])
+                summary=file_summary_dic.get(file_name)
                 print('File name: %s' % file_name)
-                for (ind,trunk) in enumerate(trunk_list):
-                    print(' (%d) %s' % (ind+1,trunk))
+                print('Summary:%s' % summary)
+#                 for (ind,trunk) in enumerate(trunk_list):
+#                     print(' (%d) %s (%s)' % (ind+1,trunk[0],trunk[2]))
                     
                 
         
 
 class chunk_entity(object):
-    def __init__(self,file_name=None):
+    def __init__(self,file_name=None,file_path=None,sent_index=None):
         self.last_iob=None
         self.ent=[]
         self.file_name=file_name
+        self.sent_index=sent_index
+        self.file_path=file_path
 #         self.ent_type=None
         self.verb=None
         self.ent_complete=False
@@ -156,7 +143,7 @@ def read_articles(folder_path):
         if not os.path.isdir(file_path):
             with open(file_path, 'rb') as f:
                 article=f.read()
-            yield file_name,str(article,encoding = "utf-8")
+            yield file_name,file_path,str(article,encoding = "utf-8")
 
 def get_parent_folder_path():
     return os.path.abspath(os.path.dirname(os.getcwd()))
@@ -174,15 +161,15 @@ if __name__ == '__main__':
     folder_path=get_abs_path(parent_folder_path,folder_path)
     nlp_1.remove_pipe("ner")  #remove ner module from pipe for speeding up
     ent_list=[]
-    for (file_name, txt) in read_articles(folder_path):
+    for (file_name,file_path,txt) in read_articles(folder_path):
         doc=nlp_1(txt)
         doc=nlp_2(doc._.coref_resolved)  #coreference resolution
-        for sent in doc.sents:
-            cke=chunk_entity(file_name=file_name)
+        for (ind,sent) in enumerate(doc.sents):
+            cke=chunk_entity(file_name=file_name,file_path=file_path,sent_index=(ind+1))
             for token in sent:              
                 if cke.complete_entity(token=token):   
                     ent_list.append(cke)
-                    cke=chunk_entity(file_name=file_name)
+                    cke=chunk_entity(file_name=file_name,file_path=file_path,sent_index=(ind+1))
                     cke.complete_entity(token=token)
                     
     static_tool=static_tool()     
