@@ -156,22 +156,22 @@ w2v_df = w2v_df[['word', 'x1', 'x2']]
 #Now print the word vector as a 2d chart
 
 
-# fig, ax = plt.subplots()
-# 
-# for word, x1, x2 in zip(w2v_df['word'], w2v_df['x1'], w2v_df['x2']):
-#     ax.annotate(word, (x1, x2))
-# 
-# PADDING = 1.0
-# x_axis_min = np.amin(vectors, axis=0)[0] - PADDING
-# y_axis_min = np.amin(vectors, axis=0)[1] - PADDING
-# x_axis_max = np.amax(vectors, axis=0)[0] + PADDING
-# y_axis_max = np.amax(vectors, axis=0)[1] + PADDING
-# 
-# plt.xlim(x_axis_min, x_axis_max)
-# plt.ylim(y_axis_min, y_axis_max)
-# plt.rcParams["figure.figsize"] = (10, 10)
-# 
-# plt.show()
+fig, ax = plt.subplots()
+ 
+for word, x1, x2 in zip(w2v_df['word'], w2v_df['x1'], w2v_df['x2']):
+    ax.annotate(word, (x1, x2))
+ 
+PADDING = 1.0
+x_axis_min = np.amin(vectors, axis=0)[0] - PADDING
+y_axis_min = np.amin(vectors, axis=0)[1] - PADDING
+x_axis_max = np.amax(vectors, axis=0)[0] + PADDING
+y_axis_max = np.amax(vectors, axis=0)[1] + PADDING
+ 
+plt.xlim(x_axis_min, x_axis_max)
+plt.ylim(y_axis_min, y_axis_max)
+plt.rcParams["figure.figsize"] = (10, 10)
+ 
+plt.show()
 
 
 

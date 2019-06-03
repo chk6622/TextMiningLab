@@ -6,14 +6,19 @@ Created on May 1, 2019
 @author: xingtong
 '''
 import os
-import nltk
-from nltk.tree import Tree
-import tnt_tagger_tool
+# import nltk
+# from nltk.tree import Tree
+# import tnt_tagger_tool
 import spacy
-import textacy.extract
-from collections import Counter
+import neuralcoref
+import subject_object_extraction
+from textacy.extract import subject_verb_object_triples
+# import textacy.extract
+# from collections import Counter
 
-nlp = spacy.load('en_core_web_sm')           # load model package "en_core_web_sm/md"
+nlp_1 = spacy.load('en_core_web_sm')           # load model package "en_core_web_sm/md"
+neuralcoref.add_to_pipe(nlp_1)  #add NeuralCoref to the pipline of spacy to solve coreference resolution
+nlp_2 = spacy.load('en_core_web_sm')
 
 class root_dep_static_tool(object):
     def __init__(self,entity_name):
@@ -78,8 +83,8 @@ class static_tool(object):
             for root_dep in root_deps:
                 rd=root_dep[0]
                 rd_count=root_dep[1]
-                if not (('obj' in rd) or ('sub' in rd)):
-                    continue 
+#                 if not (('obj' in rd) or ('sub' in rd)):
+#                     continue 
                 print('\n-------------------root dependent: %s, count: %d--------------------' % (rd,rd_count))
                 actions=root_dep[2]
                 actions.sort(key=lambda x:x[1],reverse=True)
@@ -124,7 +129,7 @@ class chunk_entity(object):
                 if (iob=='B' and self.last_iob in [None,'O']) or (iob=='I' and self.last_iob in ['B','I']):           
                     last_iob=iob
                     self.ent.append(ent_text)
-                    self.sent=self.get_sentence_trunk(token.sent)
+                    self.sent=token.sent#self.get_sentence_trunk(token.sent)
                     self.root_dep=root_dep
                     self.children=children
                     if self.verb is None:
@@ -141,37 +146,21 @@ class chunk_entity(object):
         return self.ent_complete
     
     def get_sentence_trunk(self,sentence):
-        n_subject=''
-        np_subject=''
-        object=''
-        d_object=''
-        verb=''
-        i_object=''
-        p_object=''
-        sent=[]
-        for word in sentence:
-            if 'nsubj' in word.dep_:
-                n_subject=word.lemma_
-            elif 'npsubj' in word.dep_:
-                np_subject=word.lemma_
-            elif 'obj' in word.dep_:
-                object=word.lemma_
-            elif 'dobj' in word.dep_:
-                d_object=word.lemma_
-            elif 'iobj' in word.dep_:
-                i_object = word.lemma_
-            elif 'pobj' in word.dep_:
-                p_object = word.lemma_
-            elif 'ROOT' in word.dep_:
-                verb = word.lemma_
-        sent.append(n_subject)
-        sent.append(np_subject)
-        sent.append(verb)
-        sent.append(object)
-        sent.append(d_object)
-        sent.append(i_object)
-        sent.append(p_object)
-        return ' '.join(sent) 
+        trunks = [' '.join((str(sub),str(verb),str(obj))) for (sub,verb,obj) in subject_verb_object_triples(sentence)]
+#         print(trunks)
+#         for trunk in trunks:
+#             print(' '.join(trunk))
+#         trunks = list(map(lambda x:'a'.join(x),trunks))
+#         print(trunks)
+        return trunks
+#         sent=[]
+#         adj_adv=[]
+#         for word in sentence:
+#             if 'mod' in word.dep_ or 'comp' in word.dep_:
+#                 adj_adv.append(word.lemma_)
+#             else:
+#                 sent.append(word.lemma_  )
+#         return '%s (%s)' % (' '.join(sent),','.join(adj_adv))
         
 
 def read_articles(folder_path):
@@ -206,12 +195,19 @@ def get_abs_path(base_path,path_names):
 #     return nsubj and head_verb and type
 
 if __name__ == '__main__':
-    folder_path='CCAT'
+    folder_path='data'
     parent_folder_path=get_parent_folder_path()
     folder_path=get_abs_path(parent_folder_path,folder_path)
+#     print(nlp_1.pipe_names)
+#     nlp_1.remove_pipe("tagger")
+#     nlp_1.remove_pipe("parser")
+    nlp_1.remove_pipe("ner")
+#     print(nlp_1.pipe_names)
     ent_list=[]
     for (file_name, txt) in read_articles(folder_path):
-        doc=nlp(txt)
+        doc=nlp_1(txt)
+        print(doc._.coref_resolved)
+        doc=nlp_2(doc._.coref_resolved)  #coreference resolution
         for sent in doc.sents:
             cke=chunk_entity()
             for token in sent:              
