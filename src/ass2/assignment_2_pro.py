@@ -23,7 +23,7 @@ import neuralcoref
 import subject_object_extraction
 from textacy.extract import subject_verb_object_triples
 from gensim.summarization import summarize
-import itertools
+from doc_topics import text_topics
 # import textacy.extract
 # from collections import Counter
 import warnings
@@ -77,9 +77,10 @@ def extract_relations(doc,target_entity):
                 relation.sort(reverse=True)
                 relations.append((subject,' '.join(relation), ent))
     for subj, relation, obj in relations:
-        if target_entity is not None and target_entity in (subj.text,obj.text):
+        if target_entity is not None and (subj.text in target_entity or obj.text in target_entity):
 #             rReturn+="{:<10}({})\t{}\t{}\t{}({})\n".format(subj.text,subj.dep_, subj.head, obj.ent_type_, obj.text, obj.dep_)
-            rReturn.append("   -{:<35}({:<5})({:<3})\t{:<15}\t{:<35}({:<5})({:<3})".format(subj.text, subj.dep_, subj.ent_type_, relation, obj.text, obj.dep_, obj.ent_type_))
+#             rReturn.append("   -{:<35}({:<5})({:<3})\t{:<15}\t{:<35}({:<5})({:<3})".format(subj.text, subj.dep_, subj.ent_type_, relation, obj.text, obj.dep_, obj.ent_type_))
+            rReturn.append("   -{:<55}\t{:<15}\t{:<55}".format(subj.text, relation, obj.text))
     return rReturn
     
 
@@ -134,18 +135,21 @@ if __name__ == '__main__':
     folder_path=get_abs_path(parent_folder_path,folder_name)
     output_folder_path=get_abs_path(parent_folder_path,output_folder_name)
     output_file_path=get_abs_path(output_folder_path, output_file_name)
+    my_text_topics=text_topics()
     nlp_1.remove_pipe("ner")  #remove ner module from pipe for speeding up
     ent_list=[]
     ent_dic={}
     print('Start counting the top-5 organizations.')
     for ind, size, file_name,file_path,text in read_articles(folder_path):   
-#         if ind>50:
-#             break    
+        if ind>5:
+            break    
         doc=nlp_1(text)
+#         text = ' '.join([token.lemma_ for token in doc if not token.is_stop])  #lemmatization
+#         doc=nlp_1(text)
         doc=nlp_2(doc._.coref_resolved)  #coreference resolution
         org_chunk=[(chunk,file_name) for chunk in doc.noun_chunks if chunk.root.ent_type_=='ORG']
         ent_list+=org_chunk
-        print('Processing {:4}/{:<4}.'.format(ind,size))
+        print('Processing {:4}/{:<4}.'.format(ind+1,size))
 #     print(ent_list)
     for ent in ent_list:
         if ent_dic.get(ent[0].text) is None:
@@ -187,16 +191,24 @@ if __name__ == '__main__':
         
         for ind,(doc,doc_name) in enumerate(doc_list):
             output_buffer.append(' (%d). %s' % (ind+1,doc_name))
+            output_buffer.append('  Topics:')
+            try:
+                output_buffer+=my_text_topics.get_topics(doc)
+            except Exception:
+                pass
+            output_buffer.append('  Entity Relations:')
             for sent in sent_list:
                 if sent.doc==doc:
+#                     chunks = doc.noun_chunks
 #                     trunk=get_sentence_trunk(sent)
-                    trunk=extract_relations(nlp_2(sent.text),ent_title)
+                    doc_ent_list=[chunk.text for chunk in doc.noun_chunks if chunk.root.ent_type_=='ORG']
+                    trunk=extract_relations(nlp_2(sent.text),doc_ent_list)
                     if trunk is not None and len(trunk)>0:
                         output_buffer+=trunk
 #                     else:
 #                         output_buffer.append(sent.text)
-    output_static_results_file(output_file_path,output_buffer)
-    print('Finish searching relationship.')
+#     output_static_results_file(output_file_path,output_buffer)
+#     print('Finish searching relationship.')
 #                         for line in trunk:
 #                             print(line)
 #                     else:
@@ -215,29 +227,29 @@ if __name__ == '__main__':
 #                     key_words+=[item.text for item in right_words]
 # #                     print(key_words)
 #                     print('----%s' % ' '.join(key_words))
-#             file_word_distance={}
-#             
-#             cur_ent=ent_list[0]
-#             for token in doc:
-#                 if (not token.is_stop) and (token.pos_=='VERB') and (file_word_distance.get(token.text) is None) and token.lemma_!=ent_title:
-#                     try:
-#                         file_word_distance[token.text]=cur_ent.similarity(token)
-#                     except Exception:
-#                         pass
+            file_word_distance={}
+             
+            cur_ent=ent_list[0]
+            for token in doc:
+                if (not token.is_stop) and (token.pos_=='noun') and (file_word_distance.get(token.text) is None) and token.lemma_!=ent_title:
+                    try:
+                        file_word_distance[token.text]=cur_ent.similarity(token)
+                    except Exception:
+                        pass
             
-#             dep_dic={}
-#             for ent in ent_list:   
-#                 if ent.doc==doc:
-#                     dep=ent.root.dep_
-#                     dp=dep_dic.get(dep)
-#                     if dp is None:
-#                         dep_dic[dep]=1
-#                     else:
-#                         dep_dic[dep]+=1
-#             file_word_distance_list=[(word,distance) for (word,distance) in file_word_distance.items()]
-#             file_word_distance_list.sort(key=lambda x:x[1], reverse=True)
-#             print(file_word_distance_list[:5])
-#             print(dep_dic)
+            dep_dic={}
+            for ent in ent_list:   
+                if ent.doc==doc:
+                    dep=ent.root.dep_
+                    dp=dep_dic.get(dep)
+                    if dp is None:
+                        dep_dic[dep]=1
+                    else:
+                        dep_dic[dep]+=1
+            file_word_distance_list=[(word,distance) for (word,distance) in file_word_distance.items()]
+            file_word_distance_list.sort(key=lambda x:x[1], reverse=True)
+            print(file_word_distance_list[:5])
+            print(dep_dic)
 #         print()
     
     
