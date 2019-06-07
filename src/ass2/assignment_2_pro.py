@@ -34,7 +34,9 @@ nlp_1 = spacy.load('en_core_web_sm')           # load model package "en_core_web
 neuralcoref.add_to_pipe(nlp_1)  #add NeuralCoref to the pipline of spacy to solve coreference resolution
 nlp_2 = spacy.load('en_core_web_sm')
             
-        
+
+
+
 def filter_spans(spans):
     # Filter a sequence of spans so they don't contain overlaps
     get_sort_key = lambda span: (span.end - span.start, span.start)

@@ -14,6 +14,7 @@ import spacy
 import neuralcoref
 import subject_object_extraction
 from textacy.extract import subject_verb_object_triples
+from textacy.extract import semistructured_statements
 from gensim.summarization import summarize
 from doc_topics import text_topics
 # import textacy.extract
@@ -21,6 +22,74 @@ from doc_topics import text_topics
 import warnings
 
 warnings.filterwarnings('ignore')
+
+def get_sentence_trunk(sentence):
+    '''
+    get all the subj+verb+obj phrase from the sentence 
+    @param sentence:
+    @return: a list, every item in the list is a subj+verb+obj phrase
+    '''
+    return [' '.join((str(sub),str(verb),str(obj))) for (sub,verb,obj) in subject_verb_object_triples(sentence)]
+
+def get_subject(subj):
+    subject=[]
+    for left in subj.lefts:
+        subject.append(left.lemma_)
+    subject.append(subj.lemma_)
+    for right in subj.rights:
+        subject.append(right.lemma_)
+    return ' '.join(subject)
+
+def filter_spans(spans):
+    # Filter a sequence of spans so they don't contain overlaps
+    get_sort_key = lambda span: (span.end - span.start, span.start)
+    sorted_spans = sorted(spans, key=get_sort_key, reverse=True)
+    result = []
+    seen_tokens = set()
+    for span in sorted_spans:
+        if span.start not in seen_tokens and span.end - 1 not in seen_tokens:
+            result.append(span)
+            seen_tokens.update(range(span.start, span.end))
+    return result
+
+def extract_relations(doc,target_entity):
+    rReturn=[]
+    # Merge entities and noun chunks into one token
+    spans = list(doc.ents) + list(doc.noun_chunks)
+    spans = filter_spans(spans)
+    with doc.retokenize() as retokenizer:
+        for span in spans:
+            retokenizer.merge(span)
+    relations = []
+    for ent in doc:
+        if ent.dep_ in ("attr", "dobj"):
+            subject = [w for w in ent.head.lefts if w.dep_ == "nsubj"]
+            if subject:
+                subject = subject[0]
+                relations.append((subject, subject.head.text, ent))
+        elif ent.dep_ == "pobj" and ent.head.dep_ == "prep":
+            relations.append((ent.head.head, ent.head.head.head.text,ent))
+        elif ent.dep_=='pobj' and ent.head.dep_=='agent':
+            relation=[]
+            subject=None
+            for w in ent.ancestors:
+#                 print('%s-%s-%s' % (w,w.dep_,w.pos_))
+                if w.dep_=='nsubj':
+                    subject=w
+                elif w.dep_!='ROOT':
+                    relation.append(w.text)
+            if subject:
+                relation.sort(reverse=True)
+                relations.append((subject,' '.join(relation), ent))
+    for subj, relation, obj in relations:
+#         print(subj.text,obj.text)
+        if target_entity is not None and ((subj.lemma_ in target_entity) or (obj.lemma_ in target_entity)):
+            subject=get_subject(subj)
+            object=get_subject(obj)
+            rReturn.append("   -{:<55}\t{:<15}\t{:<55}".format(subject, relation, object))
+    return rReturn
+
+
 
 nlp_1 = spacy.load('en_core_web_sm')           # load model package "en_core_web_sm/md"
 neuralcoref.add_to_pipe(nlp_1)  #add NeuralCoref to the pipline of spacy to solve coreference resolution
@@ -64,20 +133,17 @@ ent_list+=org_chunk
 #将简写实体名转换为全称
 new_ent_list=[]
 for ent_out in ent_list:
-    outer=ent_out[0].lemma_
-    temp=None
-    for ent_in in ent_list:
-        inner=ent_in[0].lemma_
-#         if inner=='Lear Corp.' and outer=='Lear Corp. United Technologies Corp.':
-#             print('aaa')
-        if inner !=outer and (outer in inner):
-            temp=ent_in
-#             new_ent_list.append((ent_out[0],ent_out[1],ent_in[0].sent)) #(ent,file_name,sentence)
-#         else:
-#             new_ent_list.append((ent_in[0],ent_in[1],ent_in[0].sent))
-    if temp is not None:
-        new_ent_list.append((temp[0],ent_out[1],ent_out[0].sent)) #(ent,file_name,sentence)
-    else:
+#     outer=ent_out[0].lemma_
+#     temp=None
+#     if ent_out[0].root.ent_type_ in ('ORG','PERSON'):
+#         for ent_in in ent_list:
+#             inner=ent_in[0].lemma_
+#             if inner !=outer and (outer in inner):
+#                 temp=ent_in
+#                 print('%s---->%s' % (outer,inner))
+#     if temp is not None:
+#         new_ent_list.append((temp[0],ent_out[1],ent_out[0].sent)) #(ent,file_name,sentence)
+#     else:
         new_ent_list.append((ent_out[0],ent_out[1],ent_out[0].sent))
 # print(new_ent_list)
 #合并ent
@@ -101,6 +167,8 @@ new_ent_list_distinct.sort(key=lambda x:x[3],reverse=True) #(ent,file_name,sente
 org_count={}
 for item in new_ent_list_distinct:
     entity=item[0]
+#     file_name=item[1]
+#     sentence=item[2]
     count=item[3]
     if entity.root.ent_type_!='ORG':
         continue
@@ -115,25 +183,44 @@ org_list.sort(key=lambda x:x[1],reverse=True)
 top_5_ent=[org for org,count in org_list[:5]]
 # print(top_5_ent)        
 
-#统计与organization最近似的组织
+#统计与organization最近似的组织,包括org本身
 cur_ent=top_5_ent[0]
 for chunk in new_ent_list_distinct:
-    if (file_word_distance.get(chunk[0].text) is None) and chunk[0].text!=cur_ent.text:
+    if (file_word_distance.get(chunk[0].text) is None):# and chunk[0].text!=cur_ent.text:
         try:
-            temp=cur_ent.similarity(chunk[0])
+            similarity=cur_ent.similarity(chunk[0])
 #             print(temp)
-            file_word_distance[chunk[0]]=(temp,chunk[1],chunk[2])
+            file_word_distance[chunk[0]]=(chunk[1],chunk[2],similarity)
         except Exception as ex:
             print(ex)
-file_word_distance_list=[((key,value[0],value[1],value[2])) for (key,value) in file_word_distance.items()]
+file_word_distance_list=[((key,value[0],value[1],value[2])) for (key,value) in file_word_distance.items()] #(ent,file_name,sentence,similarity)
 # print(file_word_distance_list)
-file_word_distance_list.sort(key=lambda x:x[1],reverse=True)
-top_5_Similarity=[a for (a,b,c,d) in file_word_distance_list[:5]]
-# print(top_5_Similarity)
-target_ent=[]
-target_ent+=top_5_Similarity
-target_ent.append(cur_ent)
-print(target_ent)
+file_word_distance_list.sort(key=lambda x:x[-1],reverse=True)
+top_5_similarity=[a.lemma_ for (a,b,c,d) in file_word_distance_list[:10]]
+# print(top_5_similarity)
+print('--------------------------------------------------------------')
+relations=extract_relations(doc, top_5_similarity)
+for relation in relations:
+    print(relation)
+# for sent in doc.sents:
+    
+
+
+
+
+
+# sentence_set=set()
+# for entity in top_5_similarity:
+#     sentences=entity[-1]
+#     for sentence in sentences:
+#         sentence_set.add(sentence)
+# for sentence in sentence_set:
+#     print(sentence)
+
+# target_ent=[]
+# target_ent+=top_5_Similarity
+# target_ent.append((cur_ent,)
+# print(target_ent)
 def fun(sent,target_ent):
     b_return=False
     for ent in target_ent:
@@ -141,11 +228,41 @@ def fun(sent,target_ent):
             b_return=True
             break
     return b_return
-            
-for sent in doc.sents:
+
+def fun2(word,target_words):
+    b_return=False
+    for target_word in target_words:
+        if word in target_word.lemma_:
+            b_return=True
+            break
+    return b_return
+
+
+#
+trunks=[]
+for (ind,sent) in enumerate(doc.sents):
 #     print(sent)
-    if fun(sent,target_ent):
-        print(sent)
+    if fun(sent,top_5_similarity):
+#         print(sent)
+        sentence=[]
+        ents=[ent.lemma_ for ent in sent.ents]
+        trks=[ent.lemma_ for ent in sent.noun_chunks]
+#         print(ents)
+#         print(trks)
+        for token in sent:
+#             if ('obj' in token.pos_) or ('adv' in token.pos_):
+#                 continue
+            if fun2(token.lemma_,top_5_similarity) or token.pos_ in ('VERB','ADP','CCONJ','CONJ','NOUN') or token.lemma_.lower() in ('not','no'):#,'CCONJ','NOUN'):
+                sentence.append(token.text)
+            
+        trunks.append(sentence)
+        print('%d.%s' % (ind+1,sent))
+        print('---%s' % ' '.join(sentence))
+# for trunk in trunks:
+#     print(' '.join(trunk))
+#         trunks+=get_sentence_trunk(sent)
+# for trunk in trunks:
+#     print(trunk)
     
 # dep_dic={}
 # for ent in ent_list:   
