@@ -27,12 +27,13 @@ from doc_topics import text_topics
 # import textacy.extract
 # from collections import Counter
 import warnings
+from extract_core_sentence import extract_core_sents
 
 warnings.filterwarnings('ignore')
 
-nlp_1 = spacy.load('en_core_web_sm')           # load model package "en_core_web_sm/md"
+nlp_1 = spacy.load('en_core_web_md')           # load model package "en_core_web_sm/md"
 neuralcoref.add_to_pipe(nlp_1)  #add NeuralCoref to the pipline of spacy to solve coreference resolution
-nlp_2 = spacy.load('en_core_web_sm')
+nlp_2 = spacy.load('en_core_web_md')
             
 
 
@@ -165,7 +166,7 @@ if __name__ == '__main__':
 #     tmp_list=[(ent,len(ent_list)) for (ent,ent_list) in ent_category_list[:5]]
 #     print(tmp_list)
     ent_static_list=[]
-    top_5=ent_category_list[:5]
+    top_5=ent_category_list[:6]
     print('Finish counting the top-5 organizations.')
     print('Start searching relationship.')
     output_buffer.append('The top-5 organizations are %s.' % ', '.join([item[0] for item in top_5]))
@@ -190,6 +191,12 @@ if __name__ == '__main__':
         ent_static_list.append([ent_title,doc_list,sent_list,ent_list])
     for ind,(ent_title,doc_list,sent_list,ent_list) in enumerate(ent_static_list):
         output_buffer.append('\n%d. %s is found %d times in %d files.' % (ind+1,ent_title,len(ent_list),len(doc_list)))
+        
+        sent_list=[ent[0].sent for ent in ent_list]
+        core_sent_list=extract_core_sents(sent_list)
+        for sent in core_sent_list:
+            print(sent)
+            
         
         for ind,(doc,doc_name) in enumerate(doc_list):
             output_buffer.append(' (%d). %s' % (ind+1,doc_name))
@@ -232,7 +239,6 @@ if __name__ == '__main__':
             file_word_distance_list.sort(key=lambda x:x[1], reverse=True)
             print(file_word_distance_list[:5])
             print(dep_dic)
-#         print()
     
     
     
