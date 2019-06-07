@@ -181,7 +181,7 @@ org_list=[(key,value) for (key,value) in org_count.items()]
 org_list.sort(key=lambda x:x[1],reverse=True)
 # print(org_list)
 top_5_ent=[org for org,count in org_list[:5]]
-# print(top_5_ent)        
+# print(top_5_ent)
 
 #统计与organization最近似的组织,包括org本身
 cur_ent=top_5_ent[0]
@@ -196,12 +196,12 @@ for chunk in new_ent_list_distinct:
 file_word_distance_list=[((key,value[0],value[1],value[2])) for (key,value) in file_word_distance.items()] #(ent,file_name,sentence,similarity)
 # print(file_word_distance_list)
 file_word_distance_list.sort(key=lambda x:x[-1],reverse=True)
-top_5_similarity=[a.lemma_ for (a,b,c,d) in file_word_distance_list[:10]]
+top_5_similarity=[a for (a,b,c,d) in file_word_distance_list[:10]]
 # print(top_5_similarity)
-print('--------------------------------------------------------------')
-relations=extract_relations(doc, top_5_similarity)
-for relation in relations:
-    print(relation)
+# print('--------------------------------------------------------------')
+# relations=extract_relations(doc, top_5_similarity)
+# for relation in relations:
+#     print(relation)
 # for sent in doc.sents:
     
 
@@ -252,7 +252,7 @@ for (ind,sent) in enumerate(doc.sents):
         for token in sent:
 #             if ('obj' in token.pos_) or ('adv' in token.pos_):
 #                 continue
-            if fun2(token.lemma_,top_5_similarity) or token.pos_ in ('VERB','ADP','CCONJ','CONJ','NOUN') or token.lemma_.lower() in ('not','no'):#,'CCONJ','NOUN'):
+            if fun2(token.lemma_,top_5_similarity) or token.pos_ in ('VERB','CCONJ','CONJ','NOUN') or token.lemma_.lower() in ('not','no'):#,'CCONJ','NOUN'):
                 sentence.append(token.text)
             
         trunks.append(sentence)

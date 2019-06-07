@@ -201,34 +201,14 @@ if __name__ == '__main__':
             output_buffer.append('  Entity Relations:')
             for sent in sent_list:
                 if sent.doc==doc:
-#                     chunks = doc.noun_chunks
-#                     trunk=get_sentence_trunk(sent)
+
                     doc_ent_list=[chunk.text for chunk in doc.noun_chunks if chunk.root.ent_type_=='ORG']
                     trunk=extract_relations(nlp_2(sent.text),doc_ent_list)
                     if trunk is not None and len(trunk)>0:
                         output_buffer+=trunk
-#                     else:
-#                         output_buffer.append(sent.text)
-#     output_static_results_file(output_file_path,output_buffer)
-#     print('Finish searching relationship.')
-#                         for line in trunk:
-#                             print(line)
-#                     else:
-#                         print(sent)
-#                 print(sent)
-#                 if sent.doc==doc:
-#                     sent_ent=[ent for ent in sent.ents if ent.text==ent_title]
-#                     right_words=[]
-#                     left_words=[]
-#                     key_words=[]
-#                     for ent in sent_ent:
-#                         right_words=list(itertools.islice(ent.rights, 3))
-#                         left_words=list(itertools.islice(ent.lefts, 3))
-#                     key_words+=[item.text for item in left_words]
-#                     key_words.append(ent_title)
-#                     key_words+=[item.text for item in right_words]
-# #                     print(key_words)
-#                     print('----%s' % ' '.join(key_words))
+                    else:
+                        trunk=get_sentence_trunk(sent)
+                        output_buffer+=trunk
             file_word_distance={}
              
             cur_ent=ent_list[0]
@@ -241,8 +221,8 @@ if __name__ == '__main__':
             
             dep_dic={}
             for ent in ent_list:   
-                if ent.doc==doc:
-                    dep=ent.root.dep_
+                if ent[0].doc==doc:
+                    dep=ent[0].root.dep_
                     dp=dep_dic.get(dep)
                     if dp is None:
                         dep_dic[dep]=1
