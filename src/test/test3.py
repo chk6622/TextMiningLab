@@ -30,7 +30,7 @@ def get_central_vector(sents):
     index=pairwise_distances_argmin_min(np.array([mean_vec]),vecs)[0][0]
     return sents[index]
 
-def extract_core_sents(sents):
+def extract_core_sents(nlp,sents):
     '''
     extract the core sentences according to different topic, the function use DBSCAN algorithm
     @param sents:a list of sentences
@@ -43,7 +43,9 @@ def extract_core_sents(sents):
     for (ind,sentence) in enumerate(sents):
         indexes.append(ind)
         sentences.append(sentence)
-        vectors.append(sentence.vector)
+        org_sentence=nlp(' '.join([token.lemma_ for token in sentence if token.is_stop==False and token.pos_!='PUNCT'])) #Lemmatization, removing stop words and removing punctuation
+        
+        vectors.append(org_sentence.vector)
         
     df=pd.DataFrame({'index':indexes,'sentence':sentences})
         
@@ -56,12 +58,23 @@ def extract_core_sents(sents):
             dbscan=DBSCAN(eps=i,min_samples=j,metric='cosine').fit(x)
             n_classes.append((i,j,len(pd.Series(dbscan.labels_).value_counts())))
     n_classes.sort(key=lambda x:x[2],reverse=True)
-    
-        
+#     cluster_num_list=[item[2] for item in n_classes]
+#     p_num=get_prop_cluster_num(cluster_num_list)
+#     param_list=[item for item in n_classes if item[2]==p_num]
+#     if len(param_list)==0:
+#          param_list=[item for item in n_classes if item[2]==(p_num+1)]
+#          if len(param_list)==0:
+#              param_list=[item for item in n_classes if item[2]==(p_num-1)]
+#     param=n_classes[0]
+#     try:
+#         param=param_list[0]
+#     except Exception as e:
+#         pass
     dbscan=DBSCAN(eps=n_classes[0][0],min_samples=n_classes[0][1],metric='cosine').fit(x)
     count_result_tmp = Counter(dbscan.labels_)  
 
     count_result=[(cls,cont) for cls,cont in count_result_tmp.items() if cls!=-1]
+    
     results=pd.DataFrame({'label':dbscan.labels_,'sent':sentences})
 
     for ind,count in count_result:
@@ -91,9 +104,22 @@ if __name__=='__main__':
     Including a small plant in Venezuela that assembles Cherokees and Neon small cars from kits, the investments announced Tuesday bring to $735 million the total financial commitments Chrysler and its suppliers have made in South America, the company said.
     Chrysler stock rose 25 cents to close at $28.875 Tuesday on the New York Stock Exchange.'''
     nlp = spacy.load("en_core_web_md")
+#     text='Hello World!'
     doc = nlp(text)
-    for sent in extract_core_sents(doc.sents):
-        print(sent)
+#     print(text)
+#     print(doc.vector)
+    step_1_sents=[]
+    step_2_sents=[]
+    for (ind,sent) in enumerate(extract_core_sents(nlp,doc.sents)):
+        step_1_sents.append(sent)
+        print('%d. %s' % (ind+1,sent))
+    print('---------------------------------------------------------')
+    for (ind,sent) in enumerate(extract_core_sents(nlp,step_1_sents)):
+        step_2_sents.append(sent)
+        print('%d. %s' % (ind+1,sent))
+        
+    
+
 
 
 

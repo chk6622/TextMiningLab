@@ -129,6 +129,25 @@ def get_sentence_trunk(sentence):
     '''
     return [' '.join((str(sub),str(verb),str(obj))) for (sub,verb,obj) in subject_verb_object_triples(sentence)]
 
+def is_contain(target_words,word):
+    b_return=False
+    for target_word in target_words:
+        if word in target_word:
+            b_return=True
+            break
+    return b_return  
+
+def slim_sentence(sentence):
+    trunk_return=[]
+    chunks=[chunk.lemma_ for chunk in sent.noun_chunks]
+    for token in sent:
+        if is_contain(chunks,token.lemma_) or token.pos_ in ('VERB','ADP','CCONJ','CONJ','NOUN','PUNCT') or token.lemma_.lower() in ('not','no'):
+            trunk_return.append(token.text)
+    return ' '.join(trunk_return)  
+
+    
+    
+
 if __name__ == '__main__':
     output_buffer=[]
     folder_name='CCAT'
@@ -144,8 +163,8 @@ if __name__ == '__main__':
     ent_dic={}
     print('Start counting the top-5 organizations.')
     for ind, size, file_name,file_path,text in read_articles(folder_path):   
-        if ind>5:
-            break    
+#         if ind>500:
+#             break    
         doc=nlp_1(text)
 #         text = ' '.join([token.lemma_ for token in doc if not token.is_stop])  #lemmatization
 #         doc=nlp_1(text)
@@ -191,54 +210,59 @@ if __name__ == '__main__':
         ent_static_list.append([ent_title,doc_list,sent_list,ent_list])
     for ind,(ent_title,doc_list,sent_list,ent_list) in enumerate(ent_static_list):
         output_buffer.append('\n%d. %s is found %d times in %d files.' % (ind+1,ent_title,len(ent_list),len(doc_list)))
+        output_buffer.append('  Topic sentences:')
+        sent_list=[ent[0].sent for ent in ent_list if len(ent[0].sent.text.split(' '))>5]  #get the sentence which is more than 5 words
+        core_sent_list=extract_core_sents(nlp_2, sent_list)
+        output_buffer.append('  The first extraction:')
+        for (ind,sent) in enumerate(core_sent_list):
+            output_buffer.append('    (%d). %s' % (ind+1,sent))
+        core_sent_list=extract_core_sents(nlp_2, core_sent_list)
+        output_buffer.append('  The second extraction:')
+        for (ind,sent) in enumerate(core_sent_list):
+            output_buffer.append('    (%d). %s' % (ind+1,sent))
+    output_static_results_file(output_file_path,output_buffer)      
         
-        sent_list=[ent[0].sent for ent in ent_list]
-        core_sent_list=extract_core_sents(sent_list)
-        for sent in core_sent_list:
-            print(sent)
-            
-        
-        for ind,(doc,doc_name) in enumerate(doc_list):
-            output_buffer.append(' (%d). %s' % (ind+1,doc_name))
-            output_buffer.append('  Topics:')
-            try:
-                output_buffer+=my_text_topics.get_topics(doc)
-            except Exception:
-                pass
-            output_buffer.append('  Entity Relations:')
-            for sent in sent_list:
-                if sent.doc==doc:
-
-                    doc_ent_list=[chunk.text for chunk in doc.noun_chunks if chunk.root.ent_type_=='ORG']
-                    trunk=extract_relations(nlp_2(sent.text),doc_ent_list)
-                    if trunk is not None and len(trunk)>0:
-                        output_buffer+=trunk
-                    else:
-                        trunk=get_sentence_trunk(sent)
-                        output_buffer+=trunk
-            file_word_distance={}
-             
-            cur_ent=ent_list[0]
-            for token in doc:
-                if (not token.is_stop) and (token.pos_=='noun') and (file_word_distance.get(token.text) is None) and token.lemma_!=ent_title:
-                    try:
-                        file_word_distance[token.text]=cur_ent.similarity(token)
-                    except Exception:
-                        pass
-            
-            dep_dic={}
-            for ent in ent_list:   
-                if ent[0].doc==doc:
-                    dep=ent[0].root.dep_
-                    dp=dep_dic.get(dep)
-                    if dp is None:
-                        dep_dic[dep]=1
-                    else:
-                        dep_dic[dep]+=1
-            file_word_distance_list=[(word,distance) for (word,distance) in file_word_distance.items()]
-            file_word_distance_list.sort(key=lambda x:x[1], reverse=True)
-            print(file_word_distance_list[:5])
-            print(dep_dic)
+#         for ind,(doc,doc_name) in enumerate(doc_list):
+#             output_buffer.append(' (%d). %s' % (ind+1,doc_name))
+#             output_buffer.append('  Topics:')
+#             try:
+#                 output_buffer+=my_text_topics.get_topics(doc)
+#             except Exception:
+#                 pass
+#             output_buffer.append('  Entity Relations:')
+#             for sent in sent_list:
+#                 if sent.doc==doc:
+# 
+#                     doc_ent_list=[chunk.text for chunk in doc.noun_chunks if chunk.root.ent_type_=='ORG']
+#                     trunk=extract_relations(nlp_2(sent.text),doc_ent_list)
+#                     if trunk is not None and len(trunk)>0:
+#                         output_buffer+=trunk
+#                     else:
+#                         trunk=get_sentence_trunk(sent)
+#                         output_buffer+=trunk
+#             file_word_distance={}
+#              
+#             cur_ent=ent_list[0]
+#             for token in doc:
+#                 if (not token.is_stop) and (token.pos_=='noun') and (file_word_distance.get(token.text) is None) and token.lemma_!=ent_title:
+#                     try:
+#                         file_word_distance[token.text]=cur_ent.similarity(token)
+#                     except Exception:
+#                         pass
+#             
+#             dep_dic={}
+#             for ent in ent_list:   
+#                 if ent[0].doc==doc:
+#                     dep=ent[0].root.dep_
+#                     dp=dep_dic.get(dep)
+#                     if dp is None:
+#                         dep_dic[dep]=1
+#                     else:
+#                         dep_dic[dep]+=1
+#             file_word_distance_list=[(word,distance) for (word,distance) in file_word_distance.items()]
+#             file_word_distance_list.sort(key=lambda x:x[1], reverse=True)
+#             print(file_word_distance_list[:5])
+#             print(dep_dic)
     
     
     
